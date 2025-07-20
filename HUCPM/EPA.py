@@ -2,8 +2,7 @@ import math
 import time
 from math import sqrt
 
-
-f = open(r"C:\Users\huawei\Desktop\output.csv", "r", encoding="UTF-8")
+f = open(r"D:\PSO-MUCP 代码\IDEA co-location\数据文档\California_POI 13f.csv", "r", encoding="UTF-8")
 Instance = []
 for line in f:
     temp_2 = []
@@ -15,9 +14,9 @@ for line in f:
         temp_2.append(float(temp[3]))
         Instance.append(temp_2)
 f.close()
-Utility = {'A': 2, 'B': 4, 'C': 8, 'D': 4, "E": 1}
+Utility = {'A': 2, 'B': 4, 'C': 8, 'D': 4, "E": 1, "F": 4, "G": 5, "H": 3, "I": 9, "J": 3, 'K': 5, 'L': 10,'M': 8}
 Min_utility = 0.1
-D = 20 # 距离阈值越大生成得邻近关系越多
+D = 1300 # 距离阈值越大生成得邻近关系越多
 "====================================================================================================================="
 
 
@@ -230,7 +229,17 @@ def computed_one(F, utility, nis, all_utility):
 
 "=============================================================================================================="
 
+# 替代方案示例 - 手动检查内存
+import psutil
+import os
+
+
+def get_memory_usage():
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss / 1024 / 1024  # MB
+
 def my_func():
+
     ALL_utility = Compute_utility(Utility, Instance)  # U(s)
     # print(ALL_utility)
 
@@ -287,9 +296,16 @@ def my_func():
 
 
     end_time = time.time()
-    print(list(High_utility.keys()), "高效用模式")
-    print(len(High_utility.keys()), "高效用模式的个数")
 
+    H = []
+    for k in High_utility.keys():
+        if len(k) > 1:
+            H.append(k)
+
+    print(get_memory_usage())
+
+    print(H, "高效用同位模式")  # 高效用模式输出
+    print(len(H), "高效用模式个数")
 
     elapsed_time = end_time - start_time
     print(f"程序运行时间: {elapsed_time} 秒")
