@@ -1,8 +1,9 @@
+import gc
 import math
 import time
 from math import sqrt
 
-f = open(r"D:\pycharm project\IDEA co-location\数据文档\California_POI 13f.csv", "r",
+f = open(r"D:\PSO-MUCP 代码\IDEA co-location\数据文档\California_POI 13f.csv", "r",
          encoding="UTF-8")  # AA.text BB.text CC.text
 Instance = []
 for line in f:
@@ -15,14 +16,14 @@ for line in f:
         temp_2.append(float(temp[3]))
         Instance.append(temp_2)
 f.close()
-Utility = {'A': 2, 'B': 10, 'C': 8, 'D': 4, "E": 1, "F": 4, "G": 5, "H": 3, "I": 13, "J": 3, "K": 4, "L": 5, "M": 6, "N": 7,}
-Min_utility = 0.1
-D = 150# 距离阈值越大生成得邻近关系越多
+Utility = {'A': 2, 'B': 4, 'C': 8, 'D': 4, "E": 1, "F": 4, "G": 5, "H": 3, "I": 9, "J": 3, 'K': 5, 'L': 10,'M': 8}
+Min_utility = 0.5
+D = 1300 # 距离阈值越大生成得邻近关系越多
 
 start_time = time.time()
 
 
-#  计算出每个特征的总效用然后将特征按照总效用从大到小排列
+#  计算出每个特征的总效用然后将特征按照总效用从小到大排列
 def Compute_utility(Utility, instance):
     utility_dict = {}
     for elem in Utility.keys():
@@ -31,15 +32,12 @@ def Compute_utility(Utility, instance):
             if i[0][0] == elem:
                 number_instance += 1
         utility_dict[elem] = number_instance * Utility[elem]
-    sorted_utility = dict(sorted(utility_dict.items(), key=lambda x: x[1], reverse=True))
+    sorted_utility = dict(sorted(utility_dict.items(), key=lambda x: x[1]))
     all_utility = 0
     for elem in sorted_utility.keys():
-        if sorted_utility[elem] > 0:
-            all_utility += sorted_utility[elem]
+        all_utility += sorted_utility[elem]
     return sorted_utility, all_utility
 
-
-S_1, ALL_utility = Compute_utility(Utility, Instance)
 
 #  计算出所有的实例邻近关系
 def computed_neigh(instance_1, instance_2, d):
@@ -95,10 +93,6 @@ def grid_method(i, d):
     return Ns
 
 
-NIS = grid_method(Instance, D)
-# print(NIS)
-
-
 #  计算粗略上界并剪枝
 def Prune_one(nis, utility, min_utility, ALL):
     positive = []  # 存放正效用特征
@@ -120,13 +114,12 @@ def Prune_one(nis, utility, min_utility, ALL):
         for item_elem in Ins_number[item]:
             if utility[item_elem[0]] > 0:
                 Up_number[item] += utility[item_elem[0]]
-    # print(Up_number)
-    # print(Ins_number)
+    #  print(Up_number)
+    #  print(Ins_number)
     #  删除上界小于min的特征
     UP_del = Up_number.copy()
     delete = []
     for up_key in Up_number:
-        # print(Up_number[up_key]/ ALL, "111111111111111")
         if Up_number[up_key] / ALL <= min_utility:
             del UP_del[up_key]
             delete.append(up_key)
@@ -141,42 +134,21 @@ def Prune_one(nis, utility, min_utility, ALL):
     p_sorted_keys = sorted(positive_hash, key=positive_hash.get)
     n_sorted_keys = sorted(negative_hash, key=negative_hash.get)
     sort_list = p_sorted_keys + n_sorted_keys
+
+    delete_nis = {}
+    for key in nis.keys():
+        if key[0] not in delete:
+            delete_nis[key] = []
+            for instance in nis[key]:
+                if instance[0] not in delete:
+                    delete_nis[key].append(instance)
     #  print(p_sorted_keys)
     #  print(n_sorted_keys)
     #  print(sort_list)
-    return sort_list, delete, positive, negative
-
-
-#  sort_list包含的是粗略剪枝后按照RTWU进行特征排序的列表，delete是粗略剪枝的特征
-Sort_list, Delete, Positive, Negative = Prune_one(NIS, Utility, Min_utility, ALL_utility)
-print(Sort_list, Delete)
+    return sort_list, delete, positive, negative, delete_nis
 
 
 # print(Sort_list, Delete)
-
-def digui(can_key, inter, nis, A):
-    # print(can_key, "can_key")
-    # print(inter, "inter")
-    if len(inter) == 0:
-        A.append(can_key)
-        return
-    if len(inter) == 1:
-        A.append(can_key + [inter[0]])
-        return
-    pre_inter = inter.copy()
-    for elem in inter:
-        pre_inter.pop(0)
-        new_can_key = can_key + [elem]
-        new_inter = sorted(list(set(nis[elem]) & set(pre_inter)))
-        digui(new_can_key, new_inter, nis, A)
-
-
-def is_element_in_nested_list(lst, element):
-    for sublist in lst:
-        if sublist is not None:
-            if element in sublist:
-                return True
-    return False
 
 
 def Enum_Cliques(nis, delete):
@@ -185,32 +157,40 @@ def Enum_Cliques(nis, delete):
         if key[0] in delete:
             continue
         clique[key] = []
-        flag_list = nis[key].copy()
+        flag_list = nis[key].copy()  # 可以优化为直接遍历，避免复制
 
-        while len(flag_list) != 0:
-            Can_key = [flag_list[0]]
-            inter = sorted(list(set(nis[flag_list[0]]) & set(flag_list)))
-            flag_list.remove(flag_list[0])
+        while flag_list:
+            current = flag_list.pop(0)  # 移除当前节点
+            Can_key = [current]
 
-            A = []
-            digui(Can_key, inter, nis, A)
+            # 优化交集计算：避免重复转换 set 和 list
+            neighbors = set(nis[current])
+            inter = [x for x in flag_list if x in neighbors]
 
-            if len(A) != 0:
-                for elem in A:
-                    clique[key].append(elem)
-            else:
-                s = Can_key
-                if not is_element_in_nested_list(clique[key], Can_key[0]):
-                    clique[key].append(s)
-                if Can_key != s:
-                    clique[key].append(s)
+            # 改用迭代DFS代替递归
+            stack = [(Can_key, inter)]
+            while stack:
+                can_key, inter = stack.pop()
+                if not inter:
+                    clique[key].append(can_key)
+                    continue
+                if len(inter) == 1:
+                    clique[key].append(can_key + [inter[0]])
+                    continue
+
+                # 避免频繁的列表拷贝
+                first_elem = inter[0]
+                new_can_key = can_key + [first_elem]
+                remaining = inter[1:]
+
+                # 计算新的交集
+                new_neighbors = set(nis[first_elem])
+                new_inter = [x for x in remaining if x in new_neighbors]
+
+                stack.append((new_can_key, new_inter))
+                stack.append((can_key, remaining))
+
     return clique
-
-
-Clique = Enum_Cliques(NIS, Delete)
-
-
-# print(Clique)
 
 
 #  生成哈希表
@@ -247,10 +227,6 @@ def con_hash_table(clique):
     return hash_table
 
 
-Hash_table = con_hash_table(Clique)
-print(Hash_table)
-
-
 #  输入一个列表，生成该列表里的模式组合而成的k+1阶模式
 def gener_k(compute_list, sort_list, min_utility, no_hope, negative, hash_list, all_utility):
     can_hash = {}
@@ -259,7 +235,8 @@ def gener_k(compute_list, sort_list, min_utility, no_hope, negative, hash_list, 
             no_hope.append(k_1_can_key)  # 存储没有希望的模式，在后面的侯选中就不生成这种没有希望的模式
             continue
         for i in range(len(sort_list)):
-            if compute_list[k_1_can_key][1] / all_utility <= min_utility and sort_list[i] in negative:  # 如果k-1阶模式是非高效用模式，则它加上负效用的超集也可以直接删减
+            if compute_list[k_1_can_key][1] / all_utility <= min_utility and sort_list[
+                i] in negative:  # 如果k-1阶模式是非高效用模式，则它加上负效用的超集也可以直接删减
                 continue
 
             #  现在要确保生成的键是有序的
@@ -282,7 +259,6 @@ def gener_k(compute_list, sort_list, min_utility, no_hope, negative, hash_list, 
                     break
             if flag == 1:
                 continue
-
 
             #  现在要检查生成的k阶模式是否是存在的组合：
             flag_1 = 0
@@ -312,24 +288,26 @@ def order(sort_list, elem_1, elem_2):
     return False
 
 
+# print(ALL_utility)
+
+
 #  负效用定理：1.全是负效用的特征可以直接删除 2.如果k-1阶模式是非高效用模式，则它加上负效用的超集也可以直接删减
 #  计算列表
 #  精确上界剪枝
 #  找到高效用同位模式
 def Find_High_utility_pattern(hash_table, sort_list, min_utility, negative, utility, ALL):
+    all_pattern_num = 0
+
     high_utility = []
     hash_key_list = list(hash_table.keys())
     No_hope = []
-    Compute_NUMBER = 0
-
     Can_hash = {}
+
     for can_key in sort_list:
-        if can_key not in negative:  # 如果特征全是负效用就跳过
+        if can_key not in negative:  # 如果特征全是负效用就跳过，因为我们是有序的模式，如果一个模式全是负效用，那么他后面也不会再加上正效用了
             Can_hash[can_key] = [0, 0]
-    Compute_NUMBER += len(Can_hash.keys())
 
     while len(Can_hash.keys()) != 0:
-        print(Can_hash)
         number_hash_1 = {}
         up_number_1 = {}
         for elem in Can_hash:
@@ -381,14 +359,11 @@ def Find_High_utility_pattern(hash_table, sort_list, min_utility, negative, util
                 for t in up_number:
                     Can_hash[Can_hash_key][0] += len(up_number[t]) * utility[t]
         # for elem in Can_hash.keys():
-        #     if elem == "IEFG":
-        #         print(number_hash_1[elem])
-        #         print(Can_hash[elem][1] / ALL)
         # print(Can_hash)
         # print(No_hope)
 
         for key in Can_hash:
-            # print(key, (Can_hash[key][1] / ALL))
+            # print(key, (Can_hash[key][1] / ALL), Can_hash[key][1], ALL)
             if (Can_hash[key][1] / ALL) >= min_utility:
                 # print(key, (Can_hash[key][1] / ALL))
                 high_utility.append(key)
@@ -397,21 +372,49 @@ def Find_High_utility_pattern(hash_table, sort_list, min_utility, negative, util
         #  初始化
         for can_key in Can_hash:
             Can_hash[can_key] = [0, 0]
-        Compute_NUMBER += len(Can_hash.keys())
-    return high_utility, No_hope,Compute_NUMBER
+
+        all_pattern_num = all_pattern_num + len(Can_hash.keys())
+
+    return high_utility, No_hope, all_pattern_num
+
+
+# 替代方案示例 - 手动检查内存
+import psutil
+import os
+
+
+def get_memory_usage():
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss / 1024 / 1024  # MB
+
 
 def my_func():
-    h, N, num = Find_High_utility_pattern(Hash_table, Sort_list, Min_utility, Negative, Utility, ALL_utility)
-    end_time = time.time()
-    print(h, "高效用模式")
-    all_pattern = 8178
-    pruning = all_pattern - num
-    print(num)
-    print((pruning / all_pattern) * 100,"%", "精确剪枝效率比")
-    print(len(h), "高效用模式的个数")
 
-    elapsed_time = end_time - start_time
-    print(f"程序运行时间: {elapsed_time} 秒")
+    S_1, ALL_utility = Compute_utility(Utility, Instance)
+    NIS = grid_method(Instance, D)
+    Sort_list, Delete, Positive, Negative, deleted_ins = Prune_one(NIS, Utility, Min_utility, ALL_utility)
+    print(Sort_list, Delete)
+    # print(deleted_ins)
+
+    Clique = Enum_Cliques(deleted_ins, Delete)
+    # print(Clique)
+    print(f"Clique size: {sum(len(v) for v in Clique.values())}")  # 打印Clique大小
+
+    Hash_table = con_hash_table(Clique)
+    print(Hash_table)
+    del Clique  # 显式删除Clique
+    gc.collect()  # 强制垃圾回收
+
+    h, N, all_pattern = Find_High_utility_pattern(Hash_table, Sort_list, Min_utility, Negative, Utility, ALL_utility)
+    end_time = time.time()
+
+    H = [k for k in h if len(k) > 1]
+
+    print(get_memory_usage())
+
+    print(H, "高效用模式")
+    print(len(H), "高效用模式的个数")
+    print(f"程序运行时间: {end_time - start_time} 秒")
 
 if __name__ == "__main__":
     my_func()
