@@ -2,7 +2,7 @@ import math
 import time
 from math import sqrt
 
-f = open(r"D:\pycharm project\IDEA co-location\数据文档\合成数据集一 30 35 40 45 50\合成数据集一.csv", "r",
+f = open(r"D:\PSO-MUCP 代码\IDEA co-location\数据文档\California_POI 13f.csv", "r",
          encoding="UTF-8")  # AA.text BB.text CC.text
 Instance = []
 for line in f:
@@ -15,10 +15,9 @@ for line in f:
         temp_2.append(float(temp[3]))
         Instance.append(temp_2)
 f.close()
-utility = {'A': 2, 'B': 3, 'C': 1, 'D': 4, "E": 1, "F": 4, "G": 5, "H": 3, "I": 2, "J": 3, 'K': 5, 'L': 7, 'M': 8,
-           'N': 2, 'O': 6}
-min_utility = 0.3
-d = 40  # 距离阈值越大生成得邻近关系越多
+utility = {'A': 2, 'B': 4, 'C': 8, 'D': 4, "E": 1, "F": 4, "G": 5, "H": 3, "I": 9, "J": 3, 'K': 5, 'L': 10,'M': 8}
+min_utility = 0.5
+d = 1300  # 距离阈值越大生成得邻近关系越多
 
 start_time = time.time()
 
@@ -244,12 +243,21 @@ def search(s_utility):
             temp = temp_now
     return pattern_list
 
+# 替代方案示例 - 手动检查内存
+import psutil
+import os
+
+
+def get_memory_usage():
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss / 1024 / 1024  # MB
 
 def my_func():
+
     Ns = grid_method(Instance, d)
     S_utility, All_utility = Compute_utility(utility, Instance)
     TREE = search_tree(Ns, S_utility)
-    print(TREE, "TREE")
+
     pattern_num = 0
     pruning = 0
     high_pattern = []
@@ -259,7 +267,7 @@ def my_func():
         list_al.append(keyword)
         if S_utility[keyword] / All_utility >= min_utility:
             high_pattern.append(keyword)
-    print(list_al)
+
     # 生成二阶候选模式
     pattern_list = []
     for i in range(len(list_al)):
@@ -315,8 +323,16 @@ def my_func():
         pattern_num += len(pattern_list)
 
     end_time = time.time()
-    print(high_pattern, "高效用同位模式")  # 高效用模式输出
-    print(len(high_pattern), "高效用模式个数")
+
+    H = []
+    for k in high_pattern:
+        if len(k) > 1:
+            H.append(k)
+
+    print(get_memory_usage())
+
+    print(H, "高效用同位模式")  # 高效用模式输出
+    print(len(H), "高效用模式个数")
 
     elapsed_time = end_time - start_time
     print(f"程序运行时间: {elapsed_time} 秒")
