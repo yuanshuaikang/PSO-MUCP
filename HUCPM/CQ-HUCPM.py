@@ -1,9 +1,13 @@
+import gc
 import math
+import os
+import tracemalloc
 from math import sqrt
 import time
+import psutil
 
 
-f = open(r"D:\pycharm project\IDEA co-location\数据文档\California_POI 13f.csv", "r",
+f = open(r"D:\PSO-MUCP 代码\IDEA co-location\数据文档\California_POI 13f.csv", "r",
          encoding="UTF-8")  # AA.text BB.text CC.text
 Instance_utils = {'A': 2, 'B': 4, 'C': 8, 'D': 4, "E": 1, "F": 4, "G": 5, "H": 3, "I": 9, "J": 3, 'K': 5, 'L': 10,'M': 8}
 Instance_util = {}
@@ -19,9 +23,8 @@ for line in f:
         Instance.append(temp_2)
         Instance_util[s] = Instance_utils[temp[0]]
 f.close()
-
-D = 1800
-Min_util = 0.1
+D = 1300
+Min_util = 0.5
 
 start_time = time.time()
 "=================================================================================================================="
@@ -203,10 +206,13 @@ def con_hash_table(clique):
 def compute_adaptive_UPI(key, hash_table, normal_util, util, all_s):
     # print(hash_table.keys())
     # print(key)
+
     un_repeat = {}
     UPI = []
+
     for z in range(len(key)):
         un_repeat[key[z]] = []
+
     for table_key in hash_table:
         s = 0
         for i in range(len(key)):
@@ -216,6 +222,7 @@ def compute_adaptive_UPI(key, hash_table, normal_util, util, all_s):
             for j in range(len(key)):
                 for elem in hash_table[table_key][key[j]]:
                     un_repeat[key[j]].append(elem)
+
     Un_repeat = {}
     for keys in un_repeat:
         Un_repeat[keys] = list(set(un_repeat[keys]))
@@ -223,6 +230,7 @@ def compute_adaptive_UPI(key, hash_table, normal_util, util, all_s):
     # print(all_s)
     #  计算参与实例的效用
     z_utility = 0
+
     for key in Un_repeat:
         for elem in Un_repeat[key]:
             z_utility += normal_util[elem]
@@ -284,6 +292,7 @@ def generate_set(pattern):
 def CQ_Hucpm(hash_table, min_util, normal_util, util, all_u):
     HUCPS = {}
     candid_pattern = list(hash_table.keys())
+
     for can in candid_pattern:
         PI = compute_adaptive_UPI(can, hash_table, normal_util, util, all_u)
         if PI >= min_util:
@@ -297,21 +306,41 @@ def CQ_Hucpm(hash_table, min_util, normal_util, util, all_u):
                 if Sub_pi >= min_util:
                     h = "".join(sorted(pattern))
                     HUCPS[h] = Sub_pi
+
     return HUCPS
 
+def get_memory_usage():
+    process = psutil.Process(os.getpid())
+    return process.memory_info().rss / 1024 / 1024  # MB
 
+# @profile
 def my_func():
+    # 开始内存跟踪
+    tracemalloc.start()
+
     NIS = grid_method(Instance, D)
-    print(NIS)
+    # print(NIS)
     # Normal_instance_util = Normalized_util(Instance_util)
     Util, ALL = compute_util(Instance_util)
     Clique = Enum_Cliques(NIS)
     Hash_table = con_hash_table(Clique)
-    print(Hash_table)
+
+    del Clique
+    gc.collect()  # 强制垃圾回收
+
+    # print(Hash_table)
     HT = CQ_Hucpm(Hash_table, Min_util, Instance_util, Util, ALL)
     end_time = time.time()
-    print(list(HT.keys()), "高效用模式")
-    print(len(HT.keys()), "高效用模式个数")
+
+    H = []
+    for k in HT.keys():
+        if len(k) > 1:
+            H.append(k)
+
+    print(get_memory_usage())
+
+    print(H, "高效用模式")
+    print(len(H), "高效用模式个数")
 
     elapsed_time = end_time - start_time
     print(f"程序运行时间: {elapsed_time} 秒")
