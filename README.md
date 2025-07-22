@@ -1,4 +1,4 @@
-# PSO-MUCP Algorithm README
+# PSO-MUCP Algorithm
 
 This document provides detailed information about the PSO-MUCP algorithm and its comparison algorithms (EPA, EHUCM, and CQ-HUCPM) for mining High Utility Co-location Patterns (HUCP) from spatial datasets.
 
